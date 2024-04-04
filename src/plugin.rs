@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use std::{ffi::CString, thread::{self, sleep, JoinHandle}, time::Duration};
+use std::{ffi::CString, thread::{self, JoinHandle}, time::Duration};
 use chrono::{TimeZone, Utc};
 use smol::{lock::Mutex, Timer};
 use windows::{core::{Error, HSTRING}, Media::Control::GlobalSystemMediaTransportControlsSessionPlaybackStatus};
@@ -59,8 +59,9 @@ pub fn cleanup_state() {
         let mut guard = unsafe { STATE.as_ref() }.unwrap().lock_blocking();
         guard.stop = true;
         drop(guard);
-        // TODO: Figure out how to move ownership from THREADHANDLE so we can properly join, instead of just waiting.
-        sleep(Duration::from_millis(200));
+        unsafe {
+            THREADHANDLE.take().expect("There should be a thread to clean up when STATE is set").join().unwrap();
+        }
     }
 }
 

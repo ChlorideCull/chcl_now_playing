@@ -136,10 +136,18 @@ pub async fn wrt_refresh_thread(state: &smol::lock::Mutex<PluginState>) {
             }
 
             let pos = Duration::from_micros((timeline_properties.Position().unwrap_or_default().Duration / 10).try_into().unwrap()) + offset;
-            protected_set(&POSITION, Some(CString::new(format!("{}:{:02}", pos.as_secs() / 60, pos.as_secs() % 60)).unwrap_or(CString::new("CString::New failed on title").unwrap()))).await;
+            if pos.as_secs() >= 60 * 60 {
+                protected_set(&POSITION, Some(CString::new(format!("{}:{:02}:{:02}", pos.as_secs() / 60 / 60, pos.as_secs() / 60 % 60, pos.as_secs() % 60)).unwrap_or(CString::new("CString::New failed on title").unwrap()))).await;
+            } else {
+                protected_set(&POSITION, Some(CString::new(format!("{}:{:02}", pos.as_secs() / 60, pos.as_secs() % 60)).unwrap_or(CString::new("CString::New failed on title").unwrap()))).await;
+            }
             protected_set(&POSITION_I, Some(CString::new(pos.as_secs().to_string()).unwrap())).await;
             let len = Duration::from_micros((timeline_properties.EndTime().unwrap_or_default().Duration / 10).try_into().unwrap());
-            protected_set(&LENGTH, Some(CString::new(format!("{}:{:02}", len.as_secs() / 60, len.as_secs() % 60)).unwrap_or(CString::new("CString::New failed on title").unwrap()))).await;
+            if len.as_secs() >= 60 * 60 {
+                protected_set(&LENGTH, Some(CString::new(format!("{}:{:02}:{:02}", len.as_secs() / 60 / 60, len.as_secs() / 60 % 60, len.as_secs() % 60)).unwrap_or(CString::new("CString::New failed on title").unwrap()))).await;
+            } else {
+                protected_set(&LENGTH, Some(CString::new(format!("{}:{:02}", len.as_secs() / 60, len.as_secs() % 60)).unwrap_or(CString::new("CString::New failed on title").unwrap()))).await;
+            }
             protected_set(&LENGTH_I, Some(CString::new(len.as_secs().to_string()).unwrap())).await;
         } else {
             protected_set(&POSITION, None).await;

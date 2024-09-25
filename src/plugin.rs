@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use std::{ffi::CString, thread::{self, JoinHandle}, time::Duration};
+use std::{thread::{self, JoinHandle}, time::Duration};
 use chrono::{TimeZone, Utc};
 use smol::{lock::Mutex, Timer};
 use windows::{core::{Error, HSTRING}, Media::Control::GlobalSystemMediaTransportControlsSessionPlaybackStatus};
@@ -22,13 +22,13 @@ pub struct PluginState {
     pub(crate) stop: bool
 }
 
-pub static TITLE: smol::lock::Mutex<Option<CString>> = Mutex::new(None);
-pub static ARTIST: smol::lock::Mutex<Option<CString>> = Mutex::new(None);
-pub static POSITION: smol::lock::Mutex<Option<CString>> = Mutex::new(None);
-pub static POSITION_I: smol::lock::Mutex<Option<CString>> = Mutex::new(None);
-pub static LENGTH: smol::lock::Mutex<Option<CString>> = Mutex::new(None);
-pub static LENGTH_I: smol::lock::Mutex<Option<CString>> = Mutex::new(None);
-pub static STATUS: smol::lock::Mutex<Option<CString>> = Mutex::new(None);
+pub static TITLE: smol::lock::Mutex<Option<String>> = Mutex::new(None);
+pub static ARTIST: smol::lock::Mutex<Option<String>> = Mutex::new(None);
+pub static POSITION: smol::lock::Mutex<Option<String>> = Mutex::new(None);
+pub static POSITION_I: smol::lock::Mutex<Option<String>> = Mutex::new(None);
+pub static LENGTH: smol::lock::Mutex<Option<String>> = Mutex::new(None);
+pub static LENGTH_I: smol::lock::Mutex<Option<String>> = Mutex::new(None);
+pub static STATUS: smol::lock::Mutex<Option<String>> = Mutex::new(None);
 
 pub static mut STATE: Option<smol::lock::Mutex<PluginState>> = Option::None;
 pub static mut THREADHANDLE: Option<JoinHandle<()>> = Option::None;
@@ -116,9 +116,9 @@ pub async fn wrt_refresh_thread(state: &smol::lock::Mutex<PluginState>) {
         }
         let playback_info = playback_info.unwrap();
         if let Ok(playback_status) = playback_info.PlaybackStatus() {
-            protected_set(&STATUS, Some(CString::new(format_playback_status(&playback_status)).unwrap())).await;
+            protected_set(&STATUS, Some(format_playback_status(&playback_status).to_string())).await;
         } else {
-            protected_set(&STATUS, Some(CString::new("Stopped").unwrap())).await;
+            protected_set(&STATUS, Some("Stopped".to_string())).await;
         }
 
         let timeline_properties = session.GetTimelineProperties();
@@ -136,11 +136,11 @@ pub async fn wrt_refresh_thread(state: &smol::lock::Mutex<PluginState>) {
             }
 
             let pos = Duration::from_micros((timeline_properties.Position().unwrap_or_default().Duration / 10).try_into().unwrap()) + offset;
-            protected_set(&POSITION, Some(CString::new(format!("{}:{:02}", pos.as_secs() / 60, pos.as_secs() % 60)).unwrap_or(CString::new("CString::New failed on title").unwrap()))).await;
-            protected_set(&POSITION_I, Some(CString::new(pos.as_secs().to_string()).unwrap())).await;
+            protected_set(&POSITION, Some(format!("{}:{:02}", pos.as_secs() / 60, pos.as_secs() % 60))).await;
+            protected_set(&POSITION_I, Some(pos.as_secs().to_string())).await;
             let len = Duration::from_micros((timeline_properties.EndTime().unwrap_or_default().Duration / 10).try_into().unwrap());
-            protected_set(&LENGTH, Some(CString::new(format!("{}:{:02}", len.as_secs() / 60, len.as_secs() % 60)).unwrap_or(CString::new("CString::New failed on title").unwrap()))).await;
-            protected_set(&LENGTH_I, Some(CString::new(len.as_secs().to_string()).unwrap())).await;
+            protected_set(&LENGTH, Some(format!("{}:{:02}", len.as_secs() / 60, len.as_secs() % 60))).await;
+            protected_set(&LENGTH_I, Some(len.as_secs().to_string())).await;
         } else {
             protected_set(&POSITION, None).await;
             protected_set(&POSITION_I, None).await;
@@ -153,8 +153,8 @@ pub async fn wrt_refresh_thread(state: &smol::lock::Mutex<PluginState>) {
             .expect("Failed to get media properties promise")
             .await;
         if let Ok(media_properties) = media_properties {
-            protected_set(&TITLE, Some(CString::new(media_properties.Title().unwrap_or(HSTRING::new()).to_string_lossy()).unwrap_or(CString::new("CString::New failed on title").unwrap()))).await;
-            protected_set(&ARTIST, Some(CString::new(media_properties.Artist().unwrap_or(HSTRING::new()).to_string_lossy()).unwrap_or(CString::new("CString::New failed on title").unwrap()))).await;
+            protected_set(&TITLE, Some(media_properties.Title().unwrap_or(HSTRING::new()).to_string_lossy())).await;
+            protected_set(&ARTIST, Some(media_properties.Artist().unwrap_or(HSTRING::new()).to_string_lossy())).await;
         } else {
             protected_set(&TITLE, None).await;
             protected_set(&ARTIST, None).await;

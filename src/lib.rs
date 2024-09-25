@@ -12,26 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 mod plugin;
-use std::ffi::{c_char, c_int, CStr};
+use std::ffi::c_char;
 
-#[no_mangle]
-pub extern "stdcall" fn SmartieInit() {
-    // Deliberately left empty - tried initializing the background thread here, but kept running into an issue where it wasn't loaded.
-}
+use lcdsmartie_rs::ShortString;
 
-#[no_mangle]
-pub extern "stdcall" fn SmartieFini() {
-    plugin::cleanup_state();
-}
-
-const INFO_LINE: &CStr = c"Developer: Dusty the Fuzzy Dragon\r\nVersion: 1.RIIR";
-#[no_mangle]
-pub extern "stdcall" fn SmartieInfo() -> *const c_char {
-    return INFO_LINE.as_ptr();
-}
-
-const DOC_LINE: &CStr = 
-c"# Get the currently playing artist
+const DOC_LINE: &str = 
+"# Get the currently playing artist
 $dll(chcl_now_playing,1,,)
 # Get the currently playing song title
 $dll(chcl_now_playing,2,,)
@@ -40,89 +26,59 @@ $dll(chcl_now_playing,3,,) / $dll(chcl_now_playing,4,,)
 # Get the current song progress as a bar 20 characters wide
 $Bar($dll(chcl_now_playing,5,,),$dll(chcl_now_playing,6,,),20)
 ";
-#[no_mangle]
-pub extern "stdcall" fn SmartieDemo() -> *const c_char {
-    return DOC_LINE.as_ptr();
-}
 
-#[no_mangle]
-pub extern "stdcall" fn GetMinRefreshInterval() -> c_int {
-    return 150; // Internal refresh rate is 100 ms + runtime, so 150 is reasonable.
-}
+struct NowPlaying {}
 
-#[no_mangle]
-pub extern "stdcall" fn function1(_: *const c_char, _: *const c_char) -> *const c_char {
-    plugin::ensure_initialized();
-    let guard = plugin::ARTIST.lock_blocking();
-    if let Some(val) = guard.as_ref() {
-        return val.as_ptr();
-    } else {
-        return c"".as_ptr();
+impl lcdsmartie_rs::Plugin for NowPlaying {
+    fn new() -> Self {
+        NowPlaying {}
+    }
+
+    fn developer(&self) -> &'static str {
+        "Dusty the Fuzzy Dragon"
+    }
+    
+    fn version(&self) -> &'static str {
+        "1.RIIR"
+    }
+
+    fn documentation(&self) -> lcdsmartie_rs::ShortString {
+        DOC_LINE.try_into().unwrap()
+    }
+
+    fn minimum_refresh_interval_ms(&self) -> i32 {
+        150
+    }
+
+    fn function_router(&self, fid: u8, _: &str, _: &str) -> Result<ShortString, String> {
+        plugin::ensure_initialized();
+        let guard = match fid {
+            1 => plugin::ARTIST.lock_blocking(),
+            2 => plugin::TITLE.lock_blocking(),
+            3 => plugin::POSITION.lock_blocking(),
+            4 => plugin::LENGTH.lock_blocking(),
+            5 => plugin::POSITION_I.lock_blocking(),
+            6 => plugin::LENGTH_I.lock_blocking(),
+            7 => plugin::STATUS.lock_blocking(),
+            _ => unimplemented!()
+        };
+        if let Some(v) = guard.as_ref() {
+            let res: Result<ShortString, _> = v.as_str().try_into();
+            if res.is_err() {
+                return Err(res.err().unwrap());
+            }
+        }
+        return match fid {
+            5..=6 => Ok("0".try_into().unwrap()),
+            _ => Ok(lcdsmartie_rs::ShortString::default())
+        };
     }
 }
 
-#[no_mangle]
-pub extern "stdcall" fn function2(_: *const c_char, _: *const c_char) -> *const c_char {
-    plugin::ensure_initialized();
-    let guard = plugin::TITLE.lock_blocking();
-    if let Some(val) = guard.as_ref() {
-        return val.as_ptr();
-    } else {
-        return c"".as_ptr();
+impl Drop for NowPlaying {
+    fn drop(&mut self) {
+        plugin::cleanup_state();
     }
 }
 
-#[no_mangle]
-pub extern "stdcall" fn function3(_: *const c_char, _: *const c_char) -> *const c_char {
-    plugin::ensure_initialized();
-    let guard = plugin::POSITION.lock_blocking();
-    if let Some(val) = guard.as_ref() {
-        return val.as_ptr();
-    } else {
-        return c"".as_ptr();
-    }
-}
-
-#[no_mangle]
-pub extern "stdcall" fn function4(_: *const c_char, _: *const c_char) -> *const c_char {
-    plugin::ensure_initialized();
-    let guard = plugin::LENGTH.lock_blocking();
-    if let Some(val) = guard.as_ref() {
-        return val.as_ptr();
-    } else {
-        return c"".as_ptr();
-    }
-}
-
-#[no_mangle]
-pub extern "stdcall" fn function5(_: *const c_char, _: *const c_char) -> *const c_char {
-    plugin::ensure_initialized();
-    let guard = plugin::POSITION_I.lock_blocking();
-    if let Some(val) = guard.as_ref() {
-        return val.as_ptr();
-    } else {
-        return c"0".as_ptr();
-    }
-}
-
-#[no_mangle]
-pub extern "stdcall" fn function6(_: *const c_char, _: *const c_char) -> *const c_char {
-    plugin::ensure_initialized();
-    let guard = plugin::LENGTH_I.lock_blocking();
-    if let Some(val) = guard.as_ref() {
-        return val.as_ptr();
-    } else {
-        return c"0".as_ptr();
-    }
-}
-
-#[no_mangle]
-pub extern "stdcall" fn function7(_: *const c_char, _: *const c_char) -> *const c_char {
-    plugin::ensure_initialized();
-    let guard = plugin::STATUS.lock_blocking();
-    if let Some(val) = guard.as_ref() {
-        return val.as_ptr();
-    } else {
-        return c"0".as_ptr();
-    }
-}
+lcdsmartie_rs::define_plugin!(NowPlaying);

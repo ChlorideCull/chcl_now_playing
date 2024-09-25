@@ -9,6 +9,7 @@ crate-type = ["cdylib"]
 [dependencies]
 chrono = "0.4.37"
 smol = "2.0.0"
+lcdsmartie-rs = { path = "../lcdsmartie-rs", features = ["std"] }
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

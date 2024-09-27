@@ -1,4 +1,4 @@
-// Copyright 2024 Sebastian "Dusty the Fuzzy Dragon" Johansson
+// Copyright 2024 Tore Leo Sebastian "Dusty the Fuzzy Dragon" Johansson
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
